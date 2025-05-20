@@ -15,7 +15,7 @@ class CareerPredictor:
                 'Business/Finance', 'Education/Research', 'Law', 'Media/Communication',
                 'Psychology', 'Environmental Science', 'Architecture', 'Music/Performance',
                 'Sports/Athletics', 'Writing/Literature', 'Public Service', 'Research/Academia',
-                'Physical Education'  # Added this to the official list
+                'Physical Education', 'Teaching/Professor'  # Added Teaching/Professor
             ]
             self._initialize_model()
         except Exception as e:
@@ -61,7 +61,7 @@ class CareerPredictor:
                       'Arts/Creative', 'Music/Performance', 'Writing/Literature', 'Sports/Athletics',
                       'IT', 'Engineering', 'Media/Communication', 'Education/Research', 'Research/Academia',
                       'Law', 'Physics/Science', 'Technology/Entrepreneurship', 'Medical', 'Psychology',
-                      'Environmental Science', 'Architecture', 'Physical Education']:
+                      'Environmental Science', 'Architecture', 'Physical Education', 'Teaching/Professor']:
             if career not in rules_score:
                 rules_score[career] = 0
         
@@ -92,6 +92,7 @@ class CareerPredictor:
             rules_score['Research/Academia'] += 3
             rules_score['Law'] += 2
             rules_score['Writing/Literature'] += 2
+            rules_score['Teaching/Professor'] += 3  # Added for teaching profession
         
         # Jupiter in 5th or 9th house - Education and wisdom
         if normalized_features['Jupiter_house'] in [5, 9]:
@@ -99,6 +100,7 @@ class CareerPredictor:
             rules_score['Law'] += 3
             rules_score['Physics/Science'] += 3
             rules_score['Research/Academia'] += 2
+            rules_score['Teaching/Professor'] += 3  # Added for teaching profession
         
         # Jupiter in 2nd house - Financial success and abundance
         if normalized_features['Jupiter_house'] == 2:
@@ -153,6 +155,7 @@ class CareerPredictor:
             rules_score['Education/Research'] += 3
             rules_score['Politics/Social Reform'] += 3
             rules_score['Psychology'] += 3
+            rules_score['Teaching/Professor'] += 2  # Added for teaching profession
         
         # Moon in 5th house - Creative expression and entertainment
         if normalized_features['Moon_house'] == 5:
