@@ -7,6 +7,8 @@ from utils.data_processor import DataProcessor
 from utils.famous_personalities import FamousPersonalities
 import pandas as pd
 import datetime
+from geopy.geocoders import Nominatim
+from geopy.exc import GeocoderTimedOut, GeocoderUnavailable
 
 def initialize_session_state():
     if 'predictor' not in st.session_state:
@@ -284,6 +286,28 @@ def display_famous_personality_prediction():
         st.error(f"Error loading personalities: {str(e)}")
         st.write("Something went wrong while loading the famous personalities. Please refresh the page and try again.")
 
+def get_coordinates_from_location(country, state, district):
+    """Get coordinates from location details using geocoding"""
+    try:
+        # Create a geocoder instance
+        geolocator = Nominatim(user_agent="career_astro_predictor")
+        
+        # Construct the location string
+        location_str = f"{district}, {state}, {country}"
+        
+        # Get location
+        location = geolocator.geocode(location_str)
+        
+        if location:
+            return location.latitude, location.longitude
+        else:
+            st.warning("Could not find exact coordinates. Using default coordinates.")
+            return 0.0, 0.0
+            
+    except (GeocoderTimedOut, GeocoderUnavailable) as e:
+        st.error(f"Error getting coordinates: {str(e)}")
+        return 0.0, 0.0
+
 def create_birth_details_form():
     st.subheader("Enter Birth Details")
     
@@ -298,13 +322,32 @@ def create_birth_details_form():
     birth_time = st.time_input("Time of Birth")
     
     # Birth Place
+    st.subheader("Birth Place Details")
+    
+    # Country
+    country = st.text_input("Country", "India")
+    
+    # State
+    state = st.text_input("State")
+    
+    # District
+    district = st.text_input("District")
+    
+    # Get coordinates from location
+    latitude, longitude = get_coordinates_from_location(country, state, district)
+    
+    # Display coordinates
+    st.write(f"Coordinates: Latitude {latitude:.6f}, Longitude {longitude:.6f}")
+    
+    # Allow manual coordinate adjustment if needed
+    st.write("You can adjust the coordinates manually if needed:")
     col1, col2 = st.columns(2)
     with col1:
         latitude = st.number_input(
             "Latitude",
             min_value=-90.0,
             max_value=90.0,
-            value=0.0,
+            value=float(latitude),
             step=0.000001,
             format="%.6f"
         )
@@ -313,7 +356,7 @@ def create_birth_details_form():
             "Longitude",
             min_value=-180.0,
             max_value=180.0,
-            value=0.0,
+            value=float(longitude),
             step=0.000001,
             format="%.6f"
         )
