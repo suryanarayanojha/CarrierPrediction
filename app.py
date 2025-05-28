@@ -6,6 +6,7 @@ from utils.astro_utils import AstroUtils
 from utils.data_processor import DataProcessor
 from utils.famous_personalities import FamousPersonalities
 import pandas as pd
+import datetime
 
 def initialize_session_state():
     if 'predictor' not in st.session_state:
@@ -283,6 +284,42 @@ def display_famous_personality_prediction():
         st.error(f"Error loading personalities: {str(e)}")
         st.write("Something went wrong while loading the famous personalities. Please refresh the page and try again.")
 
+def create_birth_details_form():
+    st.subheader("Enter Birth Details")
+    
+    # Date of Birth
+    dob = st.date_input(
+        "Date of Birth",
+        min_value=datetime.date(1900, 1, 1),
+        max_value=datetime.date.today()
+    )
+    
+    # Time of Birth
+    birth_time = st.time_input("Time of Birth")
+    
+    # Birth Place
+    col1, col2 = st.columns(2)
+    with col1:
+        latitude = st.number_input(
+            "Latitude",
+            min_value=-90.0,
+            max_value=90.0,
+            value=0.0,
+            step=0.000001,
+            format="%.6f"
+        )
+    with col2:
+        longitude = st.number_input(
+            "Longitude",
+            min_value=-180.0,
+            max_value=180.0,
+            value=0.0,
+            step=0.000001,
+            format="%.6f"
+        )
+    
+    return dob, birth_time, latitude, longitude
+
 def main():
     st.set_page_config(
         page_title="Vedic Astrology Career Predictor",
@@ -304,33 +341,46 @@ def main():
             st.error("Failed to initialize prediction model. Please refresh the page and try again.")
             return
         
-        # Create tabs for different features
-        tab1, tab2 = st.tabs(["Personal Prediction", "Famous Personalities"])
+        # Create tabs for different input methods
+        tab1, tab2, tab3 = st.tabs(["Manual Input", "Birth Details", "Famous Personalities"])
         
         with tab1:
+            st.header("Manual Planetary Positions")
             planet_positions = create_planet_input_form()
             
             if st.button("Predict Career"):
-                with st.spinner("Analyzing planetary positions..."):
-                    try:
-                        # Validate inputs
-                        is_valid, error_message = AstroUtils.validate_inputs(planet_positions)
-                        
-                        if not is_valid:
-                            st.error(error_message)
-                        else:
-                            # Process data and make prediction
-                            features = DataProcessor.create_feature_dict(planet_positions)
-                            career, confidence_scores, top_careers = st.session_state.predictor.predict(features)
-                            
-                            # Display results
-                            display_prediction(career, confidence_scores, top_careers)
-                    except Exception as e:
-                        st.error(f"Error during prediction: {str(e)}")
-                        st.error(f"Traceback: {traceback.format_exc()}")
-                        st.write("Something went wrong during the prediction. Please try again with different planetary positions.")
+                try:
+                    features = DataProcessor.create_feature_dict(planet_positions)
+                    career, confidence_scores, top_careers = st.session_state.predictor.predict(features)
+                    display_prediction(career, confidence_scores, top_careers)
+                except Exception as e:
+                    st.error(f"Error making prediction: {str(e)}")
         
         with tab2:
+            st.header("Birth Details Input")
+            dob, birth_time, latitude, longitude = create_birth_details_form()
+            
+            if st.button("Generate Kundli and Predict"):
+                try:
+                    # Calculate planetary positions
+                    planet_positions = AstroUtils.calculate_planet_positions(
+                        dob, birth_time, latitude, longitude
+                    )
+                    
+                    # Display Kundli details
+                    st.subheader("Generated Kundli")
+                    st.write(AstroUtils.get_planet_details(planet_positions))
+                    
+                    # Make prediction
+                    features = DataProcessor.create_feature_dict(planet_positions)
+                    career, confidence_scores, top_careers = st.session_state.predictor.predict(features)
+                    display_prediction(career, confidence_scores, top_careers)
+                    
+                except Exception as e:
+                    st.error(f"Error generating Kundli: {str(e)}")
+                    st.error(traceback.format_exc())
+        
+        with tab3:
             display_famous_personality_prediction()
     except Exception as e:
         st.error(f"Application error: {str(e)}")
