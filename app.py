@@ -9,6 +9,7 @@ import pandas as pd
 import datetime
 from geopy.geocoders import Nominatim
 from geopy.exc import GeocoderTimedOut, GeocoderUnavailable
+from utils.lagna_chart_plot import plot_north_indian_chart
 
 def initialize_session_state():
     if 'predictor' not in st.session_state:
@@ -44,7 +45,7 @@ def create_planet_input_form():
     
     return planet_positions
 
-def display_prediction(career, confidence_scores, top_careers=None):
+def display_prediction(career, confidence_scores, top_careers=None, planet_positions=None):
     try:
         st.subheader("Career Prediction Results")
         
@@ -67,8 +68,40 @@ def display_prediction(career, confidence_scores, top_careers=None):
 
         # Display career insights
         st.subheader("Career Insights")
+        
+        # Display teaching and research potential
+        if planet_positions:
+            st.write("### Teaching and Research Potential")
+            teaching_insights = AstroUtils.get_career_insights(planet_positions)
+            st.write(teaching_insights)
+            
+            # Add specific education career paths
+            st.write("\n### Potential Education Career Paths")
+            education_careers = {
+                "Teaching Faculty": {
+                    "Primary/Secondary Education": ["School Teacher", "Subject Specialist", "Educational Counselor"],
+                    "Higher Education": ["Professor", "Associate Professor", "Assistant Professor", "Lecturer"],
+                    "Specialized Teaching": ["Research Guide", "Mentor", "Educational Consultant"]
+                },
+                "Non-Teaching Faculty": {
+                    "Administration": ["Academic Administrator", "Department Head", "Dean", "Registrar"],
+                    "Research": ["Research Scientist", "Research Associate", "Postdoctoral Researcher"],
+                    "Support Services": ["Librarian", "Lab Technician", "Academic Coordinator"]
+                }
+            }
+            
+            for category, subcategories in education_careers.items():
+                st.write(f"#### {category}")
+                for subcategory, roles in subcategories.items():
+                    st.write(f"**{subcategory}:**")
+                    for role in roles:
+                        st.write(f"- {role}")
+        
+        # Display general career insights
+        st.write("\n### General Career Compatibility")
         for career, score in confidence_scores.items():
             st.write(f"**{career}**: {score:.2%} compatibility")
+            
     except Exception as e:
         st.error(f"Error displaying prediction: {str(e)}")
         st.write("Something went wrong while displaying the prediction results. Please try again.")
@@ -276,9 +309,7 @@ def display_famous_personality_prediction():
                                 st.info(f"Closest match in all options: **{closest_match}** with {highest_score:.2%} confidence")
                         
                         # Display career insights
-                        st.subheader("Career Insights")
-                        for career, score in confidence_scores.items():
-                            st.write(f"**{career}**: {score:.2%} compatibility")
+                        display_prediction(career, confidence_scores, top_careers, person_data['planet_positions'])
                     except Exception as e:
                         st.error(f"Error during prediction: {str(e)}")
                         st.write("Something went wrong during the prediction. Please try again or select a different personality.")
@@ -395,7 +426,7 @@ def main():
                 try:
                     features = DataProcessor.create_feature_dict(planet_positions)
                     career, confidence_scores, top_careers = st.session_state.predictor.predict(features)
-                    display_prediction(career, confidence_scores, top_careers)
+                    display_prediction(career, confidence_scores, top_careers, planet_positions)
                 except Exception as e:
                     st.error(f"Error making prediction: {str(e)}")
         
@@ -405,19 +436,28 @@ def main():
             
             if st.button("Generate Kundli and Predict"):
                 try:
-                    # Calculate planetary positions
-                    planet_positions = AstroUtils.calculate_planet_positions(
+                    # Calculate planetary positions and Lagna
+                    planet_positions, lagna_sign = AstroUtils.calculate_planet_positions(
                         dob, birth_time, latitude, longitude
                     )
                     
-                    # Display Kundli details
-                    st.subheader("Generated Kundli")
-                    st.write(AstroUtils.get_planet_details(planet_positions))
+                    # Display Lagna chart (North Indian style)
+                    st.subheader("Lagna Chart (North Indian Style)")
+                    fig = plot_north_indian_chart(planet_positions, lagna_sign)
+                    st.pyplot(fig)
+                    
+                    # Display Kundli details with Lagna chart
+                    st.subheader("Generated Kundli (Details)")
+                    st.write(AstroUtils.get_planet_details(planet_positions, lagna_sign))
+                    
+                    # Add a separator
+                    st.markdown("---")
                     
                     # Make prediction
+                    st.subheader("Career Prediction")
                     features = DataProcessor.create_feature_dict(planet_positions)
                     career, confidence_scores, top_careers = st.session_state.predictor.predict(features)
-                    display_prediction(career, confidence_scores, top_careers)
+                    display_prediction(career, confidence_scores, top_careers, planet_positions)
                     
                 except Exception as e:
                     st.error(f"Error generating Kundli: {str(e)}")
