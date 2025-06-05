@@ -3,6 +3,7 @@ import datetime
 import pytz
 from typing import Dict, Tuple
 import math
+from utils.astro_api import AstroAPI
 
 class AstroUtils:
     @staticmethod
@@ -55,66 +56,22 @@ class AstroUtils:
     def calculate_planet_positions(birth_date: datetime.date, birth_time: datetime.time, 
                                  latitude: float, longitude: float) -> Tuple[Dict[str, Dict[str, int]], int]:
         """
-        Calculate planetary positions based on birth details
-        Returns a tuple of (planet_positions dictionary, lagna_sign)
+        Calculate planetary positions using Free Astrology API
         """
-        # Create observer for the birth location
-        observer = ephem.Observer()
-        observer.lat = str(latitude)
-        observer.lon = str(longitude)
-        
-        # Combine date and time
-        birth_datetime = datetime.datetime.combine(birth_date, birth_time)
-        observer.date = birth_datetime
-        
-        # Calculate Lagna
-        lagna_sign = AstroUtils.calculate_lagna(birth_datetime, latitude, longitude)
-        
-        # Initialize planet positions
-        planet_positions = {}
-        
-        # Calculate positions for each planet
-        planets = {
-            'Sun': ephem.Sun(),
-            'Moon': ephem.Moon(),
-            'Mars': ephem.Mars(),
-            'Mercury': ephem.Mercury(),
-            'Jupiter': ephem.Jupiter(),
-            'Venus': ephem.Venus(),
-            'Saturn': ephem.Saturn()
-        }
-        
-        # Calculate Rahu and Ketu positions
-        moon = ephem.Moon()
-        moon.compute(observer)
-        moon_longitude = math.degrees(float(moon.hlon))
-        rahu_longitude = (moon_longitude + 180) % 360
-        ketu_longitude = (moon_longitude + 180) % 360
-        
-        # Add Rahu and Ketu
-        planets['Rahu'] = {'longitude': rahu_longitude}
-        planets['Ketu'] = {'longitude': ketu_longitude}
-        
-        for planet_name, planet in planets.items():
-            if planet_name in ['Rahu', 'Ketu']:
-                longitude = planet['longitude']
-            else:
-                planet.compute(observer)
-                longitude = math.degrees(float(planet.hlon))
+        try:
+            # Get birth chart data from API
+            birth_chart_data = AstroAPI.get_birth_chart(birth_date, birth_time, latitude, longitude)
             
-            # Convert longitude to zodiac sign (0-11)
-            sign = int(longitude / 30)
+            # Convert to planet positions format
+            planet_positions = AstroAPI.get_planet_positions(birth_chart_data)
             
-            # Calculate house based on Lagna
-            house = ((sign - lagna_sign) % 12) + 1
+            # Get Lagna sign
+            lagna_sign = AstroAPI.get_lagna_sign(birth_chart_data)
             
-            planet_positions[planet_name] = {
-                'house': house,
-                'sign': sign,
-                'longitude': longitude
-            }
-        
-        return planet_positions, lagna_sign
+            return planet_positions, lagna_sign
+            
+        except Exception as e:
+            raise Exception(f"Error calculating planet positions: {str(e)}")
 
     @staticmethod
     def create_lagna_chart(planet_positions: Dict[str, Dict[str, int]], lagna_sign: int) -> str:

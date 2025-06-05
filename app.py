@@ -5,6 +5,7 @@ from model.career_predictor import CareerPredictor
 from utils.astro_utils import AstroUtils
 from utils.data_processor import DataProcessor
 from utils.famous_personalities import FamousPersonalities
+from utils.astro_api import AstroAPI
 import pandas as pd
 import datetime
 from geopy.geocoders import Nominatim
@@ -394,6 +395,19 @@ def create_birth_details_form():
     
     return dob, birth_time, latitude, longitude
 
+def display_birth_chart(birth_date, birth_time, latitude, longitude):
+    """Display birth chart using Free Astrology API"""
+    try:
+        # Get horoscope chart SVG
+        svg_code = AstroAPI.get_horoscope_chart_svg(birth_date, birth_time, latitude, longitude)
+        
+        # Display the SVG chart
+        st.markdown("### Birth Chart")
+        st.markdown(svg_code, unsafe_allow_html=True)
+        
+    except Exception as e:
+        st.error(f"Error generating birth chart: {str(e)}")
+
 def main():
     st.set_page_config(
         page_title="Vedic Astrology Career Predictor",
@@ -436,17 +450,15 @@ def main():
             
             if st.button("Generate Kundli and Predict"):
                 try:
+                    # Display birth chart
+                    display_birth_chart(dob, birth_time, latitude, longitude)
+                    
                     # Calculate planetary positions and Lagna
                     planet_positions, lagna_sign = AstroUtils.calculate_planet_positions(
                         dob, birth_time, latitude, longitude
                     )
                     
-                    # Display Lagna chart (North Indian style)
-                    st.subheader("Lagna Chart (North Indian Style)")
-                    fig = plot_north_indian_chart(planet_positions, lagna_sign)
-                    st.pyplot(fig)
-                    
-                    # Display Kundli details with Lagna chart
+                    # Display Kundli details
                     st.subheader("Generated Kundli (Details)")
                     st.write(AstroUtils.get_planet_details(planet_positions, lagna_sign))
                     
@@ -465,6 +477,7 @@ def main():
         
         with tab3:
             display_famous_personality_prediction()
+            
     except Exception as e:
         st.error(f"Application error: {str(e)}")
         st.error(f"Traceback: {traceback.format_exc()}")
