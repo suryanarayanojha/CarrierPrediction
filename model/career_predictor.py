@@ -3,6 +3,8 @@ import numpy as np
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import LabelEncoder
 from utils.famous_personalities import FamousPersonalities
+import pickle
+from pathlib import Path
 
 class CareerPredictor:
     def __init__(self):
@@ -15,40 +17,41 @@ class CareerPredictor:
                 'Business/Finance', 'Education/Research', 'Law', 'Media/Communication',
                 'Psychology', 'Environmental Science', 'Architecture', 'Music/Performance',
                 'Sports/Athletics', 'Writing/Literature', 'Public Service', 'Research/Academia',
-                'Physical Education', 'Teaching/Professor'  # Added Teaching/Professor
+                'Physical Education', 'Teaching/Professor'
             ]
+            self._rules_cache = {}  # Cache for astrological rules
             self._initialize_model()
         except Exception as e:
             print(f"Error initializing model: {e}")
-            # Provide a fallback
             self.model = None
             self.label_encoder = LabelEncoder()
             self.career_options = [
                 'Physics/Science', 'Technology/Entrepreneurship', 'Politics/Social Reform',
                 'Engineering', 'Management', 'IT', 'Medical', 'Arts/Creative'
             ]
+            self._rules_cache = {}
 
     def _get_astrological_rules(self, features):
         """Apply traditional astrological rules for career prediction"""
+        # Create a cache key from the features
+        cache_key = tuple(sorted(features.items()))
+        if cache_key in self._rules_cache:
+            return self._rules_cache[cache_key]
+
         # Convert data to normalized format if needed
         normalized_features = {}
         for planet in ['Sun', 'Moon', 'Mars', 'Mercury', 'Jupiter', 'Venus', 'Saturn']:
-            # If data is in planet dictionary format
             if planet in features and isinstance(features[planet], dict) and 'house' in features[planet]:
                 normalized_features[f'{planet}_house'] = features[planet]['house']
                 normalized_features[f'{planet}_sign'] = features[planet]['sign']
-            # If data is already in normalized format
             elif f'{planet}_house' in features:
                 normalized_features[f'{planet}_house'] = features[f'{planet}_house']
                 normalized_features[f'{planet}_sign'] = features[f'{planet}_sign']
             else:
-                # Default values if data is missing
                 normalized_features[f'{planet}_house'] = 1
                 normalized_features[f'{planet}_sign'] = 0
         
         rules_score = {}
-        
-        # Initialize scores for each career - use .copy() to avoid reference issues
         all_careers = self.career_options.copy()
         if 'Physical Education' not in all_careers:
             all_careers.append('Physical Education')
@@ -203,10 +206,24 @@ class CareerPredictor:
             rules_score['Sports/Athletics'] += 3
             rules_score['Physical Education'] += 2
         
+        # Cache the results
+        self._rules_cache[cache_key] = rules_score
         return rules_score
 
     def _initialize_model(self):
         """Initialize the model with famous personalities data and astrological rules"""
+        # Try to load cached model first
+        cache_file = Path("cache/model.pkl")
+        if cache_file.exists():
+            try:
+                with open(cache_file, 'rb') as f:
+                    cached_data = pickle.load(f)
+                    self.model = cached_data['model']
+                    self.label_encoder = cached_data['label_encoder']
+                    return
+            except Exception as e:
+                print(f"Error loading cached model: {e}")
+
         X = []
         y = []
         
@@ -215,29 +232,23 @@ class CareerPredictor:
         
         # Create training data from famous personalities
         for person, data in personalities.items():
-            # Planet positions are already properly formatted for our model
             features = self.preprocess_features(data['planet_positions'])
             X.append(features)
             y.append(data['actual_career'])
         
         # Add synthetic data with astrological rules
         np.random.seed(42)
-        n_samples = 2000  # Increased sample size
+        n_samples = 500  # Reduced from 2000 to 500 samples
         
         for _ in range(n_samples):
-            # Create normalized format directly for synthetic data
             features = {}
             for planet in ['Sun', 'Moon', 'Mars', 'Mercury', 'Jupiter', 'Venus', 'Saturn']:
                 features[f'{planet}_house'] = np.random.randint(1, 13)
                 features[f'{planet}_sign'] = np.random.randint(0, 12)
             
-            # Apply astrological rules to determine career
             rules_score = self._get_astrological_rules(features)
-            
-            # Select top 3 careers based on rules
             top_careers = sorted(rules_score.items(), key=lambda x: x[1], reverse=True)[:3]
             
-            # Randomly select one of the top 3 careers with higher probability for higher scores
             total_score = sum(score for _, score in top_careers)
             if total_score > 0:
                 probs = [score/total_score for _, score in top_careers]
@@ -245,12 +256,22 @@ class CareerPredictor:
             else:
                 career = np.random.choice(self.career_options)
             
-            # Use standard format for features
             X.append(self.preprocess_features(features))
             y.append(career)
         
         # Train the model
         self.train(X, y)
+
+        # Cache the trained model
+        try:
+            cache_file.parent.mkdir(exist_ok=True)
+            with open(cache_file, 'wb') as f:
+                pickle.dump({
+                    'model': self.model,
+                    'label_encoder': self.label_encoder
+                }, f)
+        except Exception as e:
+            print(f"Error caching model: {e}")
 
     def preprocess_features(self, data):
         """Convert astrological data to numerical features"""
@@ -313,7 +334,7 @@ class CareerPredictor:
             prediction = self.model.predict([features_processed])
             probabilities = self.model.predict_proba([features_processed])[0]
             
-            # Get astrological rules scores
+            # Get astrological rules scores (now cached)
             rules_score = self._get_astrological_rules(features)
             
             # Normalize rules scores
@@ -324,23 +345,16 @@ class CareerPredictor:
             combined_scores = {}
             for career in self.career_options:
                 try:
-                    # Check if career exists in label encoder
                     if career in self.label_encoder.classes_:
                         model_score = probabilities[self.label_encoder.transform([career])[0]]
                     else:
-                        # Model wasn't trained on this career
                         model_score = 0.1
                     
-                    # Ensure career exists in normalized_rules_score
-                    if career in normalized_rules_score:
-                        rules_weight = normalized_rules_score[career]
-                    else:
-                        rules_weight = 0.0
-                        
+                    rules_weight = normalized_rules_score.get(career, 0.0)
                     combined_scores[career] = 0.6 * model_score + 0.4 * rules_weight
                 except Exception as e:
                     print(f"Error processing career {career}: {e}")
-                    combined_scores[career] = 0.1  # Default score for error cases
+                    combined_scores[career] = 0.1
             
             # Get top 3 career predictions
             top_careers = sorted(combined_scores.items(), key=lambda x: x[1], reverse=True)[:3]
@@ -350,18 +364,12 @@ class CareerPredictor:
             
         except Exception as e:
             print(f"Error in prediction: {e}")
-            # Return fallback predictions based on astrological rules only
             try:
                 rules_score = self._get_astrological_rules(features)
-                
-                # Normalize and prepare basic prediction
                 max_rules_score = max(rules_score.values()) if rules_score.values() else 1
                 normalized_scores = {career: score/max_rules_score for career, score in rules_score.items()}
-                
-                # Ensure we only return scores for careers in self.career_options
                 filtered_scores = {k: v for k, v in normalized_scores.items() if k in self.career_options}
                 
-                # If filtered_scores is empty, provide default scores
                 if not filtered_scores:
                     filtered_scores = {career: 0.1 for career in self.career_options}
                 
@@ -371,7 +379,6 @@ class CareerPredictor:
                 return predicted_career, filtered_scores, top_careers
             except Exception as inner_e:
                 print(f"Fallback prediction also failed: {inner_e}")
-                # Ultimate fallback - just return default values
                 default_career = self.career_options[0]
                 default_scores = {career: 0.1 for career in self.career_options}
                 default_top_careers = [(default_career, 0.1), 
