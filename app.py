@@ -350,8 +350,41 @@ def create_birth_details_form():
         max_value=datetime.date.today()
     )
     
-    # Time of Birth
-    birth_time = st.time_input("Time of Birth")
+    # Time of Birth with manual adjustment
+    st.subheader("Time of Birth")
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        hour = st.number_input(
+            "Hour (0-23)",
+            min_value=0,
+            max_value=23,
+            value=12,
+            step=1
+        )
+    
+    with col2:
+        minute = st.number_input(
+            "Minute (0-59)",
+            min_value=0,
+            max_value=59,
+            value=0,
+            step=1
+        )
+    
+    with col3:
+        second = st.number_input(
+            "Second (0-59)",
+            min_value=0,
+            max_value=59,
+            value=0,
+            step=1
+        )
+    
+    birth_time = datetime.time(hour, minute, second)
+    
+    # Display the selected time
+    st.write(f"Selected Time: {birth_time.strftime('%I:%M:%S %p')}")
     
     # Birth Place
     st.subheader("Birth Place Details")
