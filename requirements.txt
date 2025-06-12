@@ -9,4 +9,6 @@ threadpoolctl>=3.6.0
 requests>=2.31.0
 python-dotenv>=1.0.0
 geopy>=2.4.1
-matplotlib>=3.8.0 
+matplotlib>=3.8.0
+ephem>=4.1.4
+pytz>=2024.1 
